@@ -132,7 +132,6 @@ int UserPaddleShiftTick(int state) {
 enum Output_States {outputStart, outputInit, output};
 int CombineOutputTick(int state) {
 
-	PORTB = 0x04;	
 	switch(state) {
 		case(outputStart):
 			state = outputInit;
