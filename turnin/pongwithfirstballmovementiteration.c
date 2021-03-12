@@ -33,8 +33,6 @@ unsigned char j = 0; //userRow index
 unsigned char k = 0; //enemyRow index
 unsigned char ballPattern = 0x00;
 unsigned char ballRow = 0x00;
-unsigned userPoints = 0x00;
-unsigned enemyPoints = 0x00;
 
 void Set_A2D_Pin(unsigned char pinNum) {
 	ADMUX = (pinNum <= 0x07) ? pinNum : ADMUX;
@@ -360,7 +358,7 @@ int CombineOutputTick(int state) {
 }
 */
 
-enum BallMovement_States {ballStart, ballReset, middleLeft, topRight, middleRight, bottomRight, topLeft, bottomLeft, userPoint, enemyPoint};
+enum BallMovement_States {ballStart, ballReset, middleLeft, topRight, middleRight, bottomRight, topLeft, bottomLeft};
 int BallMovementTick(int state) {
 	
 	switch(state) {
@@ -381,20 +379,12 @@ int BallMovementTick(int state) {
 				state = bottomRight;
 			} break;
 		case(topRight):
-			if ((ballPattern != rightStop) && (ballRow < roof)) {
+			if ((ballPattern > rightStop) && (ballRow < roof)) {
 				state = topRight;
 			} else if ((ballPattern > rightStop) && (ballRow >= roof)) {
 				state = bottomRight;
-			} else if ((ballPattern == rightStop) && ((ballRow == enemyRow[0]) && (ballRow == 0xFE))) {
+			} else if ((ballPattern <= rightStop) && (ballRow == enemyRow[0])) {
 				state = bottomLeft;
-			} else if ((ballPattern == rightStop) && ((ballRow == enemyRow[0]) && (ballRow != 0xFE))) {
-				state = topLeft;
-			} else if ((ballPattern == rightStop) && (ballRow == enemyRow[1])) { 
-				state = middleLeft;
-			} else if ((ballPattern == rightStop) && (ballRow == enemyRow[2])) {
-				state = bottomLeft;
-			} else {
-				state = userPoint;
 			} break;
 		case(middleRight):
 			if (ballPattern > rightStop) {
@@ -407,59 +397,29 @@ int BallMovementTick(int state) {
 				state = bottomLeft;
 			} break;
 		case(bottomRight):
-			if ((ballPattern != rightStop) && (ballRow > floor)) {
+			if ((ballPattern > rightStop) && (ballRow > floor)) {
 				state = bottomRight;
 			} else if ((ballPattern > rightStop) && (ballRow <= floor)) {
 				state = topRight;
-			} else if ((ballPattern == rightStop) && (ballRow == enemyRow[0])) {
+			} else if ((ballPattern <= rightStop) && (ballRow == enemyRow[1])) {
 				state = topLeft;
-			} else if ((ballPattern == rightStop) && (ballRow == enemyRow[1])) {
-				state = middleLeft;
-			} else if ((ballPattern == rightStop) && ((ballRow == enemyRow[2]) && (ballRow == 0xEF))) {
-				state = topLeft;
-			} else if ((ballPattern == rightStop) && ((ballRow == enemyRow[2]) && (ballRow != 0xEF))) {
-				state = bottomLeft;
-			} else {
-				state = userPoint;
 			} break;
 		case(topLeft):
-			if ((ballPattern != leftStop) && (ballRow < roof)) {
+			if ((ballPattern < leftStop) && (ballRow < roof)) {
 				state = topLeft;
 			} else if ((ballPattern < leftStop) && (ballRow >= roof)) {
 				state = bottomLeft;
-			} else if ((ballPattern == leftStop) && ((ballRow == userRow[0]) && (ballRow == 0xFE))) {
+			} else if ((ballPattern >= leftStop) && (ballRow == userRow[0])) {
 				state = bottomRight;
-			} else if ((ballPattern == leftStop) && ((ballRow == userRow[0]) && (ballRow != 0xFE))) {
-				state = topRight;
-			} else if ((ballPattern == leftStop) && (ballRow == userRow[1])) {
-				state = middleRight;
-			} else if ((ballPattern == leftStop) && (ballRow == userRow[2])) {
-				state = bottomRight;
-			} else {
-				state = enemyPoint;
 			} break;
 		case(bottomLeft):
-			if ((ballPattern != leftStop) && (ballRow > floor)) {
+			if ((ballPattern < leftStop) && (ballRow > floor)) {
 				state = bottomLeft;
 			} else if ((ballPattern < leftStop) && (ballRow <= floor)) {
 				state = topLeft;
-			} else if ((ballPattern == leftStop) && (ballRow == userRow[0])) {
+			} else if ((ballPattern >= leftStop) && (ballRow == userRow[1])) {
 				state = topRight;
-			} else if ((ballPattern == leftStop) && (ballRow == userRow[1])) {
-				state = middleRight;
-			} else if ((ballPattern == leftStop) && ((ballRow == userRow[2]) && (ballRow == 0xEF))) {
-				state = topRight;
-			} else if ((ballPattern == leftStop) && ((ballRow == userRow[2]) && (ballRow != 0xEF))) {
-				state = bottomRight;
-			} else {
-				state = enemyPoint;
 			} break;
-		case(userPoint):
-			state = ballReset;
-			break;
-		case(enemyPoint):
-			state = ballReset;
-			break;
 		default:
 			state = ballStart;
 			break;
@@ -493,24 +453,9 @@ int BallMovementTick(int state) {
 			ballPattern = ballPattern << 1;
 			ballRow = (ballRow << 1) | 0x01;
 			break;
-		case(userPoint):
-			if (userPoints < 3) {
-				++userPoints;
-			} else {
-				userPoints = 0;
-				enemyPoints = 0;
-			} break;
-		case(enemyPoint):
-			if (enemyPoints < 3) {
-				++enemyPoints;
-			} else {
-				enemyPoints = 0;
-				userPoints = 0;
-			} break;
 		default:
 			break;
 	}
-	PORTD = userPoints | (enemyPoints << 3);
 	return state;
 }
 
@@ -585,8 +530,7 @@ int main(void) {
 	DDRA = 0x00; PORTA = 0xFF;
 	DDRB = 0x00; PORTB = 0xFF;
 	DDRC = 0xFF; PORTC = 0x00;
-	DDRD = 0xFF; PORTD = 0x00;
-	
+	//DDRD = 0xFF; PORTD = 0x00;
 	ADC_init();
 	
 	static task task1, task2, task3, task4;
@@ -611,7 +555,7 @@ int main(void) {
 	task3.TickFct = &EnemyPaddleShiftTick;
 	//ball movement
 	task4.state = starter;
-	task4.period = 300;
+	task4.period = 200;
 	task4.elapsedTime = task4.period;
 	task4.TickFct = &BallMovementTick;
 	
